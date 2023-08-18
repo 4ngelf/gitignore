@@ -1,0 +1,17 @@
+#!/bin/bash
+# Tool for copying selected gitignore in current working directory
+
+CNORMAL="\e[0m"
+CERROR="\e[32mRed"
+
+# Ensure dependencies
+if ! command -v fzf &>/dev/null ; then
+    echo -e "${CERROR}Error runnig the script. Please install https://github.com/junegunn/fzf ${CNORMAL}"
+    exit 1
+fi
+
+# List and copy selected gitignore
+GITIGNORES_DIR=$(dirname $(dirname $(realpath $0)))
+echo $GITIGNORES_DIR
+SELECTED=$(find "${GITIGNORES_DIR}" -name "*.gitignore" | fzf)
+cp "${SELECTED}" "${PWD}/.gitignore"
