@@ -1,17 +1,51 @@
-#!/bin/bash
+#!/usr/bin/bash
 # Tool for copying selected gitignore in current working directory
 
 CNORMAL="\e[0m"
-CERROR="\e[32mRed"
+CERROR="\e[31m"
+CGREEN="\e[32m"
 
 # Ensure dependencies
-if ! command -v fzf &>/dev/null ; then
-    echo -e "${CERROR}Error runnig the script. Please install https://github.com/junegunn/fzf ${CNORMAL}"
-    exit 1
-fi
+for prog in fzf awk; do
+    if ! command -v fzf &>/dev/null ; then
+        echo -e "gitignore error: ${CERROR}${prog} required${CNORMAL}"
+        exit 1
+    fi
+done
 
-# List and copy selected gitignore
-GITIGNORES_DIR=$(dirname $(dirname $(realpath $0)))
-echo $GITIGNORES_DIR
-SELECTED=$(find "${GITIGNORES_DIR}" -name "*.gitignore" | fzf)
-cp "${SELECTED}" "${PWD}/.gitignore"
+GITIGNORE_DEST="${PWD}/.gitignore"
+
+# Go to gitignores directory
+cd "$(dirname "$(dirname "$(realpath -P "$0")")")" || exit 1
+
+FZF_ARGS=(
+    --multi
+    --scheme=path
+    --info=right
+    --border=bottom
+    --border-label='[Space/Tab]=Select entry [Enter]=Generate gitignore'
+    --border-label-pos=5
+    --bind='change:first,space:toggle+clear-query,tab:toggle+clear-query'
+    --preview="$(command -v bat &>/dev/null && echo -n 'bat --color=always {}' || echo -n 'cat {}')"
+)
+
+#shellcheck disable=SC2016
+AWK_PROGRAM='{
+    name=$0
+    gsub(".gitignore", "", name)
+    print "###", name, "###"
+
+    cmd="cat "
+    gsub("$", $0, cmd)
+    while ((cmd |& getline line) > 0)
+        print line
+    close(cmd)
+    print "###END", name, "###"
+}' 
+
+# select and process selected gitignores
+find . -name '*.gitignore' -printf '%P\n' \
+    | fzf "${FZF_ARGS[@]}" \
+    | awk "$AWK_PROGRAM" > "$GITIGNORE_DEST"
+
+echo -e "gitignore: ${CGREEN}created on ${GITIGNORE_DEST}"
